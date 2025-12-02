@@ -18,31 +18,31 @@
 </head>
 <body>
     <h1>Video Doorbell Viewer</h1>
-    
+
     <div id="config-panel">
         <h2>Configuration</h2>
         <label>AWS Region:</label>
         <input type="text" id="region" placeholder="eu-central-1" value="eu-central-1">
-        
+
         <label>IoT Endpoint:</label>
         <input type="text" id="iotEndpoint" placeholder="xxxxx.iot.eu-central-1.amazonaws.com">
-        
+
         <label>KVS Channel ARN:</label>
         <input type="text" id="channelArn" placeholder="arn:aws:kinesisvideo:...">
-        
+
         <label>AWS Access Key ID:</label>
         <input type="text" id="accessKeyId" placeholder="AKIA...">
-        
+
         <label>AWS Secret Access Key:</label>
         <input type="password" id="secretAccessKey" placeholder="Secret key">
-        
+
         <br><br>
         <button onclick="saveConfigAndConnect()">Connect</button>
     </div>
 
     <div id="viewer-panel">
         <div id="ring-notification">
-            🔔 Someone is at the door!
+            Someone is at the door!
             <button id="pickup-btn">Pick Up</button>
         </div>
         <video id="video" autoplay playsinline></video>
