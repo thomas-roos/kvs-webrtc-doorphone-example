@@ -114,24 +114,8 @@ export AWS_REGION=$REGION
 EOF
 echo "   Created master/.env"
 
-# Create viewer config
-echo "10. Creating viewer config.js..."
-cat > viewer/config.js << EOF
-const CONFIG = {
-    AWS_REGION: '$REGION',
-    IOT_ENDPOINT: '$IOT_ENDPOINT',
-    TOPIC: 'doorbell/ring',
-    CHANNEL_ARN: '$CHANNEL_ARN',
-    
-    AWS_ACCESS_KEY_ID: '$ACCESS_KEY_ID',
-    AWS_SECRET_ACCESS_KEY: '$SECRET_ACCESS_KEY',
-    AWS_SESSION_TOKEN: ''
-};
-EOF
-echo "   Created viewer/config.js"
-
 # Create demo_config.h for C WebRTC application
-echo "11. Creating demo_config.h..."
+echo "10. Creating demo_config.h..."
 cat > master/linux-webrtc-reference-for-amazon-kinesis-video-streams/examples/app_common/demo_config.h << EOF
 #ifndef DEMO_CONFIG_H
 #define DEMO_CONFIG_H
@@ -166,6 +150,14 @@ echo ""
 echo "=========================================="
 echo "  Setup Complete!"
 echo "=========================================="
+echo ""
+echo "Viewer Configuration (enter in browser):"
+echo "  AWS Region: $REGION"
+echo "  IoT Endpoint: $IOT_ENDPOINT"
+echo "  MQTT Topic: doorbell/$CHANNEL_NAME/ring (auto-generated from channel)"
+echo "  KVS Channel ARN: $CHANNEL_ARN"
+echo "  AWS Access Key ID: $ACCESS_KEY_ID"
+echo "  AWS Secret Access Key: $SECRET_ACCESS_KEY"
 echo ""
 echo "Next steps:"
 echo "1. Build KVS WebRTC (REQUIRED - config was just generated):"

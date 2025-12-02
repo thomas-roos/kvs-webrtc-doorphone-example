@@ -3,7 +3,6 @@
 *.crt
 *.key
 .env
-config.js
 
 # Build artifacts
 build/
@@ -13,5 +12,4 @@ __pycache__/
 
 # Temporary files
 *.log
-ring.json
 /tmp/

@@ -13,11 +13,11 @@ CERT_PATH = os.getenv("CERT_PATH", "./certs/certificate.pem.crt")
 KEY_PATH = os.getenv("KEY_PATH", "./certs/private.pem.key")
 CA_PATH = os.getenv("CA_PATH", "./certs/AmazonRootCA1.pem")
 CLIENT_ID = os.getenv("CLIENT_ID", "doorbell-master")
-TOPIC = "doorbell/ring"
 
 # KVS Configuration
 CHANNEL_NAME = os.getenv("KVS_CHANNEL_NAME", "doorbell-channel")
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+TOPIC = f"doorbell/{CHANNEL_NAME}/ring"
 COMMAND_FILE = "/tmp/doorbell_commands.json"
 
 def monitor_commands():

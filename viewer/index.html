@@ -3,31 +3,59 @@
 <head>
     <title>Doorbell Viewer</title>
     <style>
-        body { font-family: Arial; padding: 20px; }
-        #video { width: 640px; height: 480px; background: #000; }
+        body { font-family: Arial; padding: 20px; max-width: 800px; margin: 0 auto; }
+        #config-panel { background: #f5f5f5; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
+        #config-panel input { width: 100%; padding: 8px; margin: 5px 0; box-sizing: border-box; }
+        #config-panel button { padding: 10px 20px; background: #4CAF50; color: white; border: none; cursor: pointer; }
+        #viewer-panel { display: none; }
+        #video { width: 100%; max-width: 640px; background: #000; display: block; }
         #ring-notification { display: none; padding: 20px; background: #4CAF50; color: white; margin: 10px 0; }
-        button { padding: 10px 20px; font-size: 16px; margin: 5px; }
+        button { padding: 10px 20px; font-size: 16px; margin: 5px; cursor: pointer; }
         #closeCall { background: #f44336; color: white; border: none; }
         #openDoor { background: #2196F3; color: white; border: none; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
     <h1>Video Doorbell Viewer</h1>
-    <div id="ring-notification">
-        🔔 Someone is at the door!
-        <button id="pickup-btn">Pick Up</button>
+    
+    <div id="config-panel">
+        <h2>Configuration</h2>
+        <label>AWS Region:</label>
+        <input type="text" id="region" placeholder="eu-central-1" value="eu-central-1">
+        
+        <label>IoT Endpoint:</label>
+        <input type="text" id="iotEndpoint" placeholder="xxxxx.iot.eu-central-1.amazonaws.com">
+        
+        <label>KVS Channel ARN:</label>
+        <input type="text" id="channelArn" placeholder="arn:aws:kinesisvideo:...">
+        
+        <label>AWS Access Key ID:</label>
+        <input type="text" id="accessKeyId" placeholder="AKIA...">
+        
+        <label>AWS Secret Access Key:</label>
+        <input type="password" id="secretAccessKey" placeholder="Secret key">
+        
+        <br><br>
+        <button onclick="saveConfigAndConnect()">Connect</button>
     </div>
-    <video id="video" autoplay playsinline></video>
-    <div>
-        <button id="closeCall" onclick="closeCall()">Close Call</button>
-        <button id="openDoor" onclick="openDoor()">Open Door</button>
+
+    <div id="viewer-panel">
+        <div id="ring-notification">
+            🔔 Someone is at the door!
+            <button id="pickup-btn">Pick Up</button>
+        </div>
+        <video id="video" autoplay playsinline></video>
+        <div>
+            <button id="closeCall" onclick="closeCall()">Close Call</button>
+            <button id="openDoor" onclick="openDoor()">Open Door</button>
+        </div>
+        <div id="status">Connecting...</div>
     </div>
-    <div id="status">Connecting to AWS IoT...</div>
 
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1000.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <script src="./amazon-kinesis-video-streams-webrtc-sdk-js/dist/kvs-webrtc.min.js"></script>
-    <script src="config.js"></script>
     <script src="viewer.js"></script>
 </body>
 </html>

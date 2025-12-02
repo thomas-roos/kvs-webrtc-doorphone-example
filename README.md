@@ -116,7 +116,7 @@ cd viewer
 python3 -m http.server 8000
 ```
 
-Open http://localhost:8000 in your browser.
+Open http://localhost:8000 and enter your AWS credentials in the configuration form.
 
 ### Manual Setup
 
@@ -164,27 +164,25 @@ Press Enter to simulate doorbell button press.
 
 ## Viewer Setup (Web Browser)
 
-### 1. Install Dependencies
+### 1. Run Web Server
 ```bash
 cd viewer
-npm install
-```
-
-### 2. Configure Credentials
-```bash
-cp config.example.js config.js
-# Edit config.js with your AWS credentials and endpoints
-```
-
-### 3. Run Web Server
-```bash
 python3 -m http.server 8000
 ```
 
-### 4. Open in Browser
+### 2. Open in Browser and Configure
 ```
 http://localhost:8000
 ```
+
+Enter your AWS credentials in the configuration form:
+- AWS Region (e.g., eu-central-1)
+- IoT Endpoint
+- KVS Channel ARN
+- AWS Access Key ID
+- AWS Secret Access Key
+
+Settings are saved in browser localStorage.
 
 ## Features
 

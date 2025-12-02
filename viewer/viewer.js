@@ -2,6 +2,44 @@ let signalingClient;
 let peerConnection;
 let mqttClient;
 let dataChannel;
+let CONFIG;
+
+function saveConfigAndConnect() {
+    const channelArn = document.getElementById('channelArn').value;
+    const channelName = channelArn.split('/')[1]; // Extract channel name from ARN
+    
+    CONFIG = {
+        AWS_REGION: document.getElementById('region').value,
+        IOT_ENDPOINT: document.getElementById('iotEndpoint').value,
+        TOPIC: `doorbell/${channelName}/ring`,
+        CHANNEL_ARN: channelArn,
+        AWS_ACCESS_KEY_ID: document.getElementById('accessKeyId').value,
+        AWS_SECRET_ACCESS_KEY: document.getElementById('secretAccessKey').value,
+        AWS_SESSION_TOKEN: ''
+    };
+    
+    // Save to localStorage
+    localStorage.setItem('doorbellConfig', JSON.stringify(CONFIG));
+    
+    // Hide config, show viewer
+    document.getElementById('config-panel').style.display = 'none';
+    document.getElementById('viewer-panel').style.display = 'block';
+    
+    // Connect
+    connectMQTT();
+}
+
+function loadConfig() {
+    const saved = localStorage.getItem('doorbellConfig');
+    if (saved) {
+        CONFIG = JSON.parse(saved);
+        document.getElementById('region').value = CONFIG.AWS_REGION;
+        document.getElementById('iotEndpoint').value = CONFIG.IOT_ENDPOINT;
+        document.getElementById('channelArn').value = CONFIG.CHANNEL_ARN;
+        document.getElementById('accessKeyId').value = CONFIG.AWS_ACCESS_KEY_ID;
+        document.getElementById('secretAccessKey').value = CONFIG.AWS_SECRET_ACCESS_KEY;
+    }
+}
 
 window.onerror = function(msg, url, line, col, error) {
     document.getElementById('status').textContent = 'JS Error: ' + msg;
@@ -9,7 +47,6 @@ window.onerror = function(msg, url, line, col, error) {
     return false;
 };
 
-// Poll AWS IoT for messages (simple approach)
 async function connectMQTT() {
     document.getElementById('status').textContent = 'Connecting to MQTT...';
     
@@ -20,11 +57,9 @@ async function connectMQTT() {
         CONFIG.AWS_SESSION_TOKEN
     );
     
-    // Create MQTT client with WebSocket
     const clientId = 'viewer-' + Date.now();
     const endpoint = `wss://${CONFIG.IOT_ENDPOINT}/mqtt`;
     
-    // Sign WebSocket URL with SigV4
     const url = AWS.util.url.parse(endpoint);
     const datetime = AWS.util.date.iso8601(new Date()).replace(/[:\-]|\.\d{3}/g, '');
     const date = datetime.substr(0, 8);
@@ -50,7 +85,6 @@ async function connectMQTT() {
     const signature = AWS.util.crypto.hmac(signingKey, stringToSign, 'hex');
     const signedUrl = protocol + '//' + host + path + '?' + queryParams + '&X-Amz-Signature=' + signature;
     
-    // Connect via Paho MQTT
     mqttClient = new Paho.MQTT.Client(signedUrl, clientId);
     
     mqttClient.onMessageArrived = (message) => {
@@ -97,7 +131,6 @@ async function joinChannel(channelName) {
     document.getElementById('status').textContent = 'Joining channel...';
     console.log('Joining channel:', channelName);
 
-    // Configure AWS credentials
     AWS.config.region = CONFIG.AWS_REGION;
     AWS.config.credentials = new AWS.Credentials(
         CONFIG.AWS_ACCESS_KEY_ID,
@@ -149,7 +182,6 @@ async function joinChannel(channelName) {
 
     peerConnection = new RTCPeerConnection(configuration);
 
-    // Create data channel
     dataChannel = peerConnection.createDataChannel('commands');
     dataChannel.onopen = () => console.log('Data channel opened');
     dataChannel.onmessage = (event) => console.log('Received:', event.data);
@@ -158,7 +190,6 @@ async function joinChannel(channelName) {
         document.getElementById('status').textContent = 'Connected to channel';
         console.log('Signaling client connected');
         
-        // Create and send SDP offer
         console.log('Creating SDP offer...');
         const offer = await peerConnection.createOffer({
             offerToReceiveAudio: true,
@@ -222,4 +253,5 @@ function openDoor() {
     }
 }
 
-connectMQTT();
+// Load saved config on page load
+loadConfig();
