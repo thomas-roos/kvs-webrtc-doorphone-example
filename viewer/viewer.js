@@ -4,6 +4,16 @@ let mqttClient;
 let dataChannel;
 let CONFIG;
 
+function log(message) {
+    const logDiv = document.getElementById('console-log');
+    if (logDiv) {
+        const timestamp = new Date().toLocaleTimeString();
+        logDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+        logDiv.scrollTop = logDiv.scrollHeight;
+    }
+    console.log(message);
+}
+
 function saveConfigAndConnect() {
     const channelArn = document.getElementById('channelArn').value;
     const channelName = channelArn.split('/')[1]; // Extract channel name from ARN
@@ -15,7 +25,7 @@ function saveConfigAndConnect() {
         CHANNEL_ARN: channelArn,
         AWS_ACCESS_KEY_ID: document.getElementById('accessKeyId').value,
         AWS_SECRET_ACCESS_KEY: document.getElementById('secretAccessKey').value,
-        AWS_SESSION_TOKEN: ''
+        AWS_SESSION_TOKEN: document.getElementById('sessionToken').value || null
     };
     
     // Save to localStorage
@@ -38,6 +48,7 @@ function loadConfig() {
         document.getElementById('channelArn').value = CONFIG.CHANNEL_ARN;
         document.getElementById('accessKeyId').value = CONFIG.AWS_ACCESS_KEY_ID;
         document.getElementById('secretAccessKey').value = CONFIG.AWS_SECRET_ACCESS_KEY;
+        document.getElementById('sessionToken').value = CONFIG.AWS_SESSION_TOKEN || '';
     }
 }
 
@@ -50,70 +61,60 @@ window.onerror = function(msg, url, line, col, error) {
 async function connectMQTT() {
     document.getElementById('status').textContent = 'Connecting to MQTT...';
     
-    AWS.config.region = CONFIG.AWS_REGION;
-    AWS.config.credentials = new AWS.Credentials(
-        CONFIG.AWS_ACCESS_KEY_ID,
-        CONFIG.AWS_SECRET_ACCESS_KEY,
-        CONFIG.AWS_SESSION_TOKEN
-    );
+    // Debug: Check if awsIot is available
+    if (typeof awsIot === 'undefined') {
+        log('ERROR: awsIot SDK not loaded');
+        document.getElementById('status').textContent = 'AWS IoT SDK not loaded';
+        return;
+    }
     
-    const clientId = 'viewer-' + Date.now();
-    const endpoint = `wss://${CONFIG.IOT_ENDPOINT}/mqtt`;
+    log('AWS IoT SDK loaded, creating device connection...');
     
-    const url = AWS.util.url.parse(endpoint);
-    const datetime = AWS.util.date.iso8601(new Date()).replace(/[:\-]|\.\d{3}/g, '');
-    const date = datetime.substr(0, 8);
+    try {
+        mqttClient = awsIot.device({
+            region: CONFIG.AWS_REGION,
+            host: CONFIG.IOT_ENDPOINT,
+            clientId: 'viewer-' + Date.now(),
+            protocol: 'wss',
+            maximumReconnectTimeMs: 8000,
+            debug: true,
+            accessKeyId: CONFIG.AWS_ACCESS_KEY_ID,
+            secretKey: CONFIG.AWS_SECRET_ACCESS_KEY
+        });
+        
+        log('Device client created, setting up event handlers...');
+    } catch (error) {
+        log('Error creating device client: ' + error.message);
+        document.getElementById('status').textContent = 'Failed to create MQTT client';
+        return;
+    }
     
-    const credentials = AWS.config.credentials;
-    const method = 'GET';
-    const protocol = url.protocol;
-    const host = url.host;
-    const path = url.path;
-    const queryParams = `X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=${encodeURIComponent(credentials.accessKeyId + '/' + date + '/' + CONFIG.AWS_REGION + '/iotdevicegateway/aws4_request')}&X-Amz-Date=${datetime}&X-Amz-SignedHeaders=host`;
+    mqttClient.on('connect', () => {
+        log('MQTT connected');
+        log('Subscribing to topic: ' + CONFIG.TOPIC);
+        mqttClient.subscribe(CONFIG.TOPIC);
+        document.getElementById('status').textContent = 'Monitoring for doorbell...';
+        log('Monitoring for doorbell rings...');
+    });
     
-    const canonicalRequest = method + '\n' + path + '\n' + queryParams + '\nhost:' + host + '\n\nhost\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
-    const stringToSign = 'AWS4-HMAC-SHA256\n' + datetime + '\n' + date + '/' + CONFIG.AWS_REGION + '/iotdevicegateway/aws4_request\n' + AWS.util.crypto.sha256(canonicalRequest, 'hex');
-    
-    const signingKey = AWS.util.crypto.hmac(
-        AWS.util.crypto.hmac(
-            AWS.util.crypto.hmac(
-                AWS.util.crypto.hmac('AWS4' + credentials.secretAccessKey, date, 'buffer'),
-                CONFIG.AWS_REGION, 'buffer'),
-            'iotdevicegateway', 'buffer'),
-        'aws4_request', 'buffer');
-    
-    const signature = AWS.util.crypto.hmac(signingKey, stringToSign, 'hex');
-    const signedUrl = protocol + '//' + host + path + '?' + queryParams + '&X-Amz-Signature=' + signature;
-    
-    mqttClient = new Paho.MQTT.Client(signedUrl, clientId);
-    
-    mqttClient.onMessageArrived = (message) => {
-        const data = JSON.parse(message.payloadString);
-        console.log('MQTT message received:', data);
+    mqttClient.on('message', (topic, payload) => {
+        log('MQTT message received on topic: ' + topic);
+        log('MQTT message payload: ' + payload.toString());
+        const data = JSON.parse(payload.toString());
+        log('MQTT message received: ' + JSON.stringify(data));
         if (data.event === 'ring') {
             showRingNotification(data.channel);
         }
-    };
+    });
     
-    mqttClient.onConnectionLost = () => {
+    mqttClient.on('error', (error) => {
+        console.error('MQTT error:', error);
+        document.getElementById('status').textContent = 'MQTT error: ' + error.message;
+    });
+    
+    mqttClient.on('close', () => {
         console.log('MQTT connection lost');
         document.getElementById('status').textContent = 'MQTT disconnected';
-    };
-    
-    mqttClient.connect({
-        useSSL: true,
-        timeout: 3,
-        mqttVersion: 4,
-        onSuccess: () => {
-            console.log('MQTT connected');
-            mqttClient.subscribe(CONFIG.TOPIC);
-            document.getElementById('status').textContent = 'Monitoring for doorbell...';
-            console.log('Monitoring for doorbell rings...');
-        },
-        onFailure: (err) => {
-            console.error('MQTT connection failed:', err);
-            document.getElementById('status').textContent = 'MQTT connection failed';
-        }
     });
 }
 
@@ -127,77 +128,135 @@ function showRingNotification(channelName) {
     };
 }
 
-async function joinChannel(channelName) {
-    document.getElementById('status').textContent = 'Joining channel...';
-    console.log('Joining channel:', channelName);
-
-    AWS.config.region = CONFIG.AWS_REGION;
-    AWS.config.credentials = new AWS.Credentials(
-        CONFIG.AWS_ACCESS_KEY_ID,
-        CONFIG.AWS_SECRET_ACCESS_KEY,
-        CONFIG.AWS_SESSION_TOKEN
-    );
-
-    const kinesisVideoClient = new AWS.KinesisVideo({ region: CONFIG.AWS_REGION });
-    const endpoint = await kinesisVideoClient.getSignalingChannelEndpoint({
-        ChannelARN: channelName,
-        SingleMasterChannelEndpointConfiguration: {
-            Protocols: ['WSS', 'HTTPS'],
-            Role: 'VIEWER'
-        }
-    }).promise();
-
-    const endpointsByProtocol = endpoint.ResourceEndpointList.reduce((endpoints, endpoint) => {
-        endpoints[endpoint.Protocol] = endpoint.ResourceEndpoint;
-        return endpoints;
-    }, {});
-    
-    console.log('Endpoints:', endpointsByProtocol);
-
-    const kinesisVideoSignalingChannelsClient = new AWS.KinesisVideoSignalingChannels({
-        region: CONFIG.AWS_REGION,
-        endpoint: endpointsByProtocol.HTTPS
-    });
-
-    const iceServers = await kinesisVideoSignalingChannelsClient.getIceServerConfig({
-        ChannelARN: channelName
-    }).promise();
-
-    signalingClient = new KVSWebRTC.SignalingClient({
-        channelARN: channelName,
-        channelEndpoint: endpointsByProtocol.WSS,
-        clientId: 'viewer-' + Date.now(),
-        role: KVSWebRTC.Role.VIEWER,
-        region: CONFIG.AWS_REGION,
-        credentials: AWS.config.credentials
-    });
-
-    const configuration = {
-        iceServers: iceServers.IceServerList.map(server => ({
-            urls: server.Uris,
-            username: server.Username,
-            credential: server.Password
-        }))
-    };
-
-    peerConnection = new RTCPeerConnection(configuration);
-
-    dataChannel = peerConnection.createDataChannel('commands');
-    dataChannel.onopen = () => console.log('Data channel opened');
-    dataChannel.onmessage = (event) => console.log('Received:', event.data);
-
-    signalingClient.on('open', async () => {
-        document.getElementById('status').textContent = 'Connected to channel';
-        console.log('Signaling client connected');
+async function joinChannel(channelArn) {
+    try {
+        document.getElementById('status').textContent = 'Joining channel...';
+        log('Joining channel: ' + channelArn);
         
-        console.log('Creating SDP offer...');
+        // Extract channel name from ARN for KVS operations
+        const channelName = channelArn.split('/')[1];
+        log('Using channel name: ' + channelName);
+
+        log('Getting signaling channel endpoint...');
+        const kinesisVideoClient = new AWS.KinesisVideo.KinesisVideoClient({
+            region: CONFIG.AWS_REGION,
+            credentials: {
+                accessKeyId: CONFIG.AWS_ACCESS_KEY_ID,
+                secretAccessKey: CONFIG.AWS_SECRET_ACCESS_KEY,
+                sessionToken: CONFIG.AWS_SESSION_TOKEN || null,
+            }
+        });
+        
+        const getSignalingChannelEndpointCommand = new AWS.KinesisVideo.GetSignalingChannelEndpointCommand({
+            ChannelARN: channelArn,
+            SingleMasterChannelEndpointConfiguration: {
+                Protocols: ['WSS', 'HTTPS'],
+                Role: KVSWebRTC.Role.VIEWER
+            }
+        });
+        
+        const endpoint = await kinesisVideoClient.send(getSignalingChannelEndpointCommand);
+
+        log('Got endpoint response, processing...');
+        const endpointsByProtocol = endpoint.ResourceEndpointList.reduce((endpoints, endpoint) => {
+            endpoints[endpoint.Protocol] = endpoint.ResourceEndpoint;
+            return endpoints;
+        }, {});
+        
+        log('Endpoints: ' + JSON.stringify(endpointsByProtocol));
+
+        log('Creating signaling channels client...');
+        const kinesisVideoSignalingChannelsClient = new AWS.KinesisVideoSignaling.KinesisVideoSignalingClient({
+            region: CONFIG.AWS_REGION,
+            credentials: {
+                accessKeyId: CONFIG.AWS_ACCESS_KEY_ID,
+                secretAccessKey: CONFIG.AWS_SECRET_ACCESS_KEY,
+                sessionToken: CONFIG.AWS_SESSION_TOKEN,
+            },
+            endpoint: endpointsByProtocol.HTTPS,
+            correctClockSkew: true,
+        });
+
+        log('Getting ICE server config...');
+        const getIceServerConfigCommand = new AWS.KinesisVideoSignaling.GetIceServerConfigCommand({
+            ChannelARN: channelArn
+        });
+        
+        const iceServers = await kinesisVideoSignalingChannelsClient.send(getIceServerConfigCommand);
+
+        log('Creating signaling client...');
+        
+        // Debug credentials thoroughly
+        log('Access Key ID: ' + (CONFIG.AWS_ACCESS_KEY_ID ? 'Present' : 'Missing'));
+        log('Secret Key: ' + (CONFIG.AWS_SECRET_ACCESS_KEY ? 'Present' : 'Missing'));
+        log('Session Token: ' + (CONFIG.AWS_SESSION_TOKEN ? 'Present' : 'Missing/Undefined'));
+        log('Session Token value: ' + CONFIG.AWS_SESSION_TOKEN);
+        
+        signalingClient = new KVSWebRTC.SignalingClient({
+            channelARN: channelArn,
+            channelEndpoint: endpointsByProtocol.WSS,
+            clientId: 'viewer-' + Math.random().toString(36).substr(2, 9),
+            role: KVSWebRTC.Role.VIEWER,
+            region: CONFIG.AWS_REGION,
+            credentials: {
+                accessKeyId: CONFIG.AWS_ACCESS_KEY_ID,
+                secretAccessKey: CONFIG.AWS_SECRET_ACCESS_KEY,
+                sessionToken: CONFIG.AWS_SESSION_TOKEN,
+            },
+            requestSigner: {
+                getSignedURL: async function(signalingEndpoint, queryParams, date) {
+                    const signer = new KVSWebRTC.SigV4RequestSigner(CONFIG.AWS_REGION, {
+                        accessKeyId: CONFIG.AWS_ACCESS_KEY_ID,
+                        secretAccessKey: CONFIG.AWS_SECRET_ACCESS_KEY,
+                        sessionToken: CONFIG.AWS_SESSION_TOKEN,
+                    });
+                    
+                    log('Signing URL...');
+                    const retVal = await signer.getSignedURL(signalingEndpoint, queryParams, date);
+                    log('URL signed successfully');
+                    return retVal;
+                }
+            }
+        });
+
+        log('Creating peer connection...');
+        const configuration = {
+            iceServers: iceServers.IceServerList.map(server => ({
+                urls: server.Uris,
+                username: server.Username,
+                credential: server.Password
+            }))
+        };
+
+        peerConnection = new RTCPeerConnection(configuration);
+
+        log('Creating data channel...');
+        dataChannel = peerConnection.createDataChannel('commands');
+        dataChannel.onopen = () => log('Data channel opened');
+    dataChannel.onmessage = (event) => log('Received: ' + event.data);
+
+    log('Setting up signaling client event handlers...');
+    signalingClient.on('open', async () => {
+        log('Signaling client connected');
+        document.getElementById('status').textContent = 'Connected to channel';
+        
+        log('Creating SDP offer...');
         const offer = await peerConnection.createOffer({
             offerToReceiveAudio: true,
             offerToReceiveVideo: true
         });
         await peerConnection.setLocalDescription(offer);
-        console.log('Sending SDP offer to master');
+        log('Sending SDP offer to master');
         signalingClient.sendSdpOffer(peerConnection.localDescription);
+    });
+
+    signalingClient.on('error', (error) => {
+        log('Signaling client error: ' + error.message);
+        document.getElementById('status').textContent = 'Signaling error: ' + error.message;
+    });
+
+    signalingClient.on('close', () => {
+        log('Signaling client closed');
     });
 
     signalingClient.on('sdpAnswer', async (answer) => {
@@ -227,8 +286,12 @@ async function joinChannel(channelName) {
         console.log('Connection state:', peerConnection.connectionState);
     });
 
-    console.log('Opening signaling client...');
+    log('Opening signaling client...');
     signalingClient.open();
+} catch (error) {
+    console.error('Error joining channel:', error);
+    document.getElementById('status').textContent = 'Failed to join channel: ' + error.message;
+}
 }
 
 function closeCall() {
