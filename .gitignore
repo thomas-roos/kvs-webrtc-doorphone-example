@@ -3,6 +3,7 @@
 *.crt
 *.key
 .env
+config.js
 
 # Build artifacts
 build/
@@ -14,6 +15,11 @@ __pycache__/
 *.log
 /tmp/
 
-demo_config.h
+# Test and debug files
+viewer/debug-test.html
+viewer/test-viewer.html
+viewer/clear-storage.html
+viewer/aws-iot-browser-bundle.js
+viewer/aws-iot-wrapper.js
 
 demo_config.h

@@ -125,7 +125,34 @@ cd viewer
 python3 -m http.server 8000
 ```
 
+**⚠️ IMPORTANT:** Always access the viewer via `http://localhost:8000` (NOT `http://0.0.0.0:8000`). The WebRTC signing requires a secure context for Web Crypto APIs, which is only available with `localhost` or HTTPS.
+
 Open http://localhost:8000 and enter your AWS credentials in the configuration form.
+
+## Troubleshooting
+
+### WebRTC "Cannot read properties of undefined (reading 'digest')" Error
+
+This error occurs when the Web Crypto APIs are not available in a secure context:
+
+**Solution:** Always use `http://localhost:8000` instead of `http://0.0.0.0:8000`
+
+**Root Cause:** The KVS WebRTC SDK requires `crypto.subtle` APIs for SigV4 signing, which are only available in secure contexts (HTTPS or localhost). Using `0.0.0.0` doesn't provide this secure context.
+
+**Verification:** Check browser console for:
+- `window.crypto: Available`
+- `window.crypto.subtle: Available`
+
+### MQTT Connection Issues
+
+Ensure your AWS region matches between:
+- IoT endpoint region
+- KVS channel region  
+- Configuration region setting
+
+### Manual Setup
+
+If you prefer manual setup, see the detailed steps below.
 
 ### Manual Setup
 

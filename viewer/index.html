@@ -36,6 +36,9 @@
         <label>AWS Secret Access Key:</label>
         <input type="password" id="secretAccessKey" placeholder="Secret key">
 
+        <label>AWS Session Token <small>(optional)</small>:</label>
+        <input type="password" id="sessionToken" placeholder="Session token (leave empty if not using temporary credentials)">
+
         <br><br>
         <button onclick="saveConfigAndConnect()">Connect</button>
     </div>
@@ -49,13 +52,21 @@
         <div>
             <button id="closeCall" onclick="closeCall()">Close Call</button>
             <button id="openDoor" onclick="openDoor()">Open Door</button>
+            <button onclick="startViewer()" style="background: orange;">Test WebRTC (No MQTT)</button>
         </div>
         <div id="status">Connecting...</div>
+        <div id="console-log" style="background: #f0f0f0; padding: 10px; margin: 10px 0; height: 200px; overflow-y: scroll; font-family: monospace; font-size: 12px; border: 1px solid #ccc;"></div>
     </div>
 
-    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1000.0.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <script>
+        // Ensure crypto.subtle is available for WebRTC signing
+        if (!window.crypto || !window.crypto.subtle) {
+            console.warn('Crypto API not available, this may cause WebRTC signing issues');
+        }
+    </script>
+    <script src="./amazon-kinesis-video-streams-webrtc-sdk-js/examples/aws-sdk-3.758.0-kvswebrtc.js"></script>
+    <script src="./aws-iot-browser-bundle.js"></script>
     <script src="./amazon-kinesis-video-streams-webrtc-sdk-js/dist/kvs-webrtc.min.js"></script>
-    <script src="viewer.js"></script>
+    <script src="working-viewer.js"></script>
 </body>
 </html>

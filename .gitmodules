@@ -7,3 +7,6 @@
 [submodule "master/linux-webrtc-reference-for-amazon-kinesis-video-streams"]
 	path = master/linux-webrtc-reference-for-amazon-kinesis-video-streams
 	url = https://github.com/awslabs/linux-webrtc-reference-for-amazon-kinesis-video-streams.git
+[submodule "viewer/aws-iot-device-sdk-js"]
+	path = viewer/aws-iot-device-sdk-js
+	url = https://github.com/aws/aws-iot-device-sdk-js.git
