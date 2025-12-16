@@ -197,6 +197,10 @@ sed -i "s|#define AWS_REGION \"us-west-2\"|#define AWS_REGION \"$REGION\"|g" \
 sed -i "s|#define AWS_KVS_CHANNEL_NAME \"\"|#define AWS_KVS_CHANNEL_NAME \"$CHANNEL_NAME\"|g" \
     master-amebapro/doorphone-master/examples/demo_config/demo_config.h
 
+# Add AWS IoT Core endpoint after the region line
+sed -i "/^#define AWS_REGION/a #define AWS_IOT_CORE_ENDPOINT \"$IOT_CORE_ENDPOINT\"" \
+    master-amebapro/doorphone-master/examples/demo_config/demo_config.h
+
 # Enable IoT endpoints
 sed -i "s|// #define AWS_CREDENTIALS_ENDPOINT \"\"|#define AWS_CREDENTIALS_ENDPOINT \"$IOT_CRED_ENDPOINT\"|g" \
     master-amebapro/doorphone-master/examples/demo_config/demo_config.h
