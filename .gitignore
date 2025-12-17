@@ -19,7 +19,5 @@ __pycache__/
 viewer/debug-test.html
 viewer/test-viewer.html
 viewer/clear-storage.html
-viewer/aws-iot-browser-bundle.js
-viewer/aws-iot-wrapper.js
 
 demo_config.h
