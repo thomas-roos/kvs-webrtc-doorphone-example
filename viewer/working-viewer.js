@@ -153,6 +153,28 @@ function showRingNotification() {
 // EXACT copy of working test viewer WebRTC logic with two-way audio
 async function startViewer() {
     try {
+        // Check if KVS WebRTC SDK is loaded
+        if (typeof KVSWebRTC === 'undefined') {
+            log('KVS WebRTC SDK not loaded - checking file availability...');
+            
+            // Check if we can access the KVS files
+            fetch('./amazon-kinesis-video-streams-webrtc-sdk-js/dist/kvs-webrtc.min.js')
+                .then(response => {
+                    if (!response.ok) {
+                        log('ERROR: kvs-webrtc.min.js not found (404)');
+                        log('Submodule files not deployed to GitHub Pages');
+                    } else {
+                        log('KVS file exists but KVSWebRTC object not created');
+                    }
+                })
+                .catch(error => {
+                    log('ERROR: Cannot access KVS WebRTC files: ' + error.message);
+                });
+            
+            log('WebRTC functionality unavailable - KVS SDK not loaded');
+            return;
+        }
+        
         const formValues = {
             region: CONFIG.AWS_REGION,
             channelArn: CONFIG.CHANNEL_ARN,
