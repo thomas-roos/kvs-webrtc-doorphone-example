@@ -32,22 +32,23 @@ jobs:
         run: |
           git submodule init
           git submodule update --recursive --remote
-          echo "Submodule status:"
-          git submodule status
-          echo "Checking viewer submodule contents:"
-          ls -la viewer/amazon-kinesis-video-streams-webrtc-sdk-js/ || echo "Submodule directory not found"
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Build KVS WebRTC SDK
+        run: |
+          cd viewer/amazon-kinesis-video-streams-webrtc-sdk-js
+          npm install
+          npm run build
+          echo "Build complete, checking dist directory:"
+          ls -la dist/
       
       - name: Copy submodule files to viewer directory
         run: |
           cd viewer
-          echo "Current directory contents:"
-          ls -la
-          echo "Checking for KVS submodule:"
-          ls -la amazon-kinesis-video-streams-webrtc-sdk-js/ || echo "KVS submodule missing"
-          echo "Checking dist directory:"
-          ls -la amazon-kinesis-video-streams-webrtc-sdk-js/dist/ || echo "dist directory missing"
-          echo "Checking examples directory:"
-          ls -la amazon-kinesis-video-streams-webrtc-sdk-js/examples/ || echo "examples directory missing"
           cp amazon-kinesis-video-streams-webrtc-sdk-js/dist/kvs-webrtc.min.js ./
           cp amazon-kinesis-video-streams-webrtc-sdk-js/examples/aws-sdk-3.758.0-kvswebrtc.js ./
       
