@@ -36,13 +36,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
       
       - name: Build KVS WebRTC SDK
         run: |
           cd viewer/amazon-kinesis-video-streams-webrtc-sdk-js
           npm install
-          npm run build
+          npx webpack --config webpack.dist.config.js
           echo "Build complete, checking dist directory:"
           ls -la dist/
       
