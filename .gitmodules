@@ -10,3 +10,6 @@
 [submodule "viewer/aws-iot-device-sdk-js"]
 	path = viewer/aws-iot-device-sdk-js
 	url = https://github.com/aws/aws-iot-device-sdk-js.git
+[submodule "flutter-viewer"]
+	path = flutter-viewer
+	url = https://github.com/thomas-roos/kvs-webrtc-doorphone-flutter-viewer.git
