@@ -114,7 +114,7 @@ function showRingNotification() {
     };
 }
 
-// EXACT copy of working test viewer WebRTC logic
+// EXACT copy of working test viewer WebRTC logic with two-way audio
 async function startViewer() {
     try {
         const formValues = {
@@ -123,7 +123,8 @@ async function startViewer() {
             accessKeyId: CONFIG.AWS_ACCESS_KEY_ID,
             secretAccessKey: CONFIG.AWS_SECRET_ACCESS_KEY,
             sessionToken: CONFIG.AWS_SESSION_TOKEN,
-            clientId: 'viewer-' + Math.random().toString(36).substr(2, 9)
+            clientId: 'viewer-' + Math.random().toString(36).substr(2, 9),
+            sendAudio: true  // Enable audio transmission
         };
         
         // Debug credentials exactly
@@ -207,6 +208,26 @@ async function startViewer() {
         
         log('ICE servers configured');
         
+        // Create peer connection
+        viewer.peerConnection = new RTCPeerConnection({ iceServers });
+        
+        // Create data channel for commands
+        viewer.dataChannel = viewer.peerConnection.createDataChannel('commands', {
+            ordered: true
+        });
+        
+        viewer.dataChannel.onopen = () => {
+            log('Data channel opened');
+        };
+        
+        viewer.dataChannel.onclose = () => {
+            log('Data channel closed');
+        };
+        
+        viewer.dataChannel.onerror = (error) => {
+            log('Data channel error: ' + error);
+        };
+        
         // Create signaling client - EXACT copy from working test page
         viewer.signalingClient = new KVSWebRTC.SignalingClient({
             channelARN,
@@ -256,29 +277,25 @@ async function startViewer() {
             }
         });
         
-        // Create peer connection
-        viewer.peerConnection = new RTCPeerConnection({ iceServers });
-        
-        // Create data channel for commands
-        viewer.dataChannel = viewer.peerConnection.createDataChannel('commands', {
-            ordered: true
-        });
-        
-        viewer.dataChannel.onopen = () => {
-            log('Data channel opened');
-        };
-        
-        viewer.dataChannel.onclose = () => {
-            log('Data channel closed');
-        };
-        
-        viewer.dataChannel.onerror = (error) => {
-            log('Data channel error: ' + error);
-        };
-        
         // Set up event handlers
         viewer.signalingClient.on('open', async () => {
             log('Signaling client connected');
+            
+            // Get microphone access for two-way audio
+            if (formValues.sendAudio) {
+                try {
+                    log('Requesting microphone access...');
+                    const constraints = { audio: true };
+                    viewer.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    viewer.localStream.getTracks().forEach(track => {
+                        log('Adding audio track to peer connection');
+                        viewer.peerConnection.addTrack(track, viewer.localStream);
+                    });
+                    log('Microphone access granted and audio track added');
+                } catch (e) {
+                    log('Could not access microphone: ' + e.message);
+                }
+            }
             
             // Create offer
             const offer = await viewer.peerConnection.createOffer({
@@ -309,8 +326,13 @@ async function startViewer() {
         });
         
         viewer.peerConnection.addEventListener('track', event => {
-            log('Received media track');
-            document.getElementById('video').srcObject = event.streams[0];
+            log('Received media track: ' + event.track.kind);
+            if (event.track.kind === 'video') {
+                document.getElementById('video').srcObject = event.streams[0];
+            } else if (event.track.kind === 'audio') {
+                // Audio will be played automatically through the video element
+                log('Audio track received and will be played automatically');
+            }
         });
         
         viewer.peerConnection.addEventListener('icecandidate', event => {
@@ -339,6 +361,10 @@ function closeCall() {
         viewer.dataChannel.close();
         viewer.dataChannel = null;
     }
+    if (viewer.localStream) {
+        viewer.localStream.getTracks().forEach(track => track.stop());
+        viewer.localStream = null;
+    }
     if (viewer.peerConnection) {
         viewer.peerConnection.close();
         viewer.peerConnection = null;
@@ -346,6 +372,27 @@ function closeCall() {
     document.getElementById('video').srcObject = null;
     document.getElementById('status').textContent = 'Monitoring for doorbell...';
     log('Call closed');
+}
+
+function toggleMicrophone() {
+    if (viewer.localStream) {
+        const audioTrack = viewer.localStream.getAudioTracks()[0];
+        if (audioTrack) {
+            audioTrack.enabled = !audioTrack.enabled;
+            const button = document.getElementById('micToggle');
+            if (audioTrack.enabled) {
+                button.textContent = 'Mic ON';
+                button.style.background = 'green';
+                log('Microphone enabled');
+            } else {
+                button.textContent = 'Mic OFF';
+                button.style.background = 'red';
+                log('Microphone disabled');
+            }
+        }
+    } else {
+        log('No microphone stream available');
+    }
 }
 
 function openDoor() {

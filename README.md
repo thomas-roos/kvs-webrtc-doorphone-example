@@ -76,6 +76,12 @@ Flow:
 - Real-time operating system
 - See [master-amebapro/README.md](master-amebapro/README.md)
 
+##### FreeRTOS Wiring
+
+![Ameba Pro2 Wiring](https://ameba-doc-arduino-sdk.readthedocs-hosted.com/en/latest/_images/image02229.png)
+
+![Doorbell Wiring Setup](1765900654331.png)
+
 ### Viewer (Web Browser)
 - JavaScript web application
 - AWS KVS WebRTC JS SDK for video streaming
