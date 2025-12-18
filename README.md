@@ -2,10 +2,6 @@
 
 WebRTC-based video doorbell using AWS Kinesis Video Streams and AWS IoT Core.
 
-![System Diagram](diagram.png)
-
-*Special thanks to Rui Cardoso for creating this excellent system diagram!*
-
 ## System Architecture
 
 ```
@@ -80,7 +76,11 @@ Flow:
 
 ![Ameba Pro2 Wiring](https://ameba-doc-arduino-sdk.readthedocs-hosted.com/en/latest/_images/image02229.png)
 
-![Doorbell Wiring Setup](1765900654331.png)
+![Doorbell Wiring Setup](doorphone.jpg)
+
+![System Diagram](diagram.png)
+
+*Special thanks to Rui Cardoso for creating this excellent system diagram!*
 
 ### Viewer (Web Browser)
 - JavaScript web application
@@ -181,7 +181,7 @@ This error occurs when the Web Crypto APIs are not available in a secure context
 
 Ensure your AWS region matches between:
 - IoT endpoint region
-- KVS channel region  
+- KVS channel region
 - Configuration region setting
 
 ### Manual Setup

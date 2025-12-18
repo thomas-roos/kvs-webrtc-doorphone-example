@@ -4,6 +4,8 @@
 *.key
 .env
 config.js
+viewer/aws-credentials.json
+viewer/settings.txt
 
 # Build artifacts
 build/

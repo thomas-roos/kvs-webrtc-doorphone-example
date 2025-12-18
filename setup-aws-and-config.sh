@@ -18,6 +18,11 @@ CHANNEL_NAME=${CHANNEL_NAME:-doorbell-channel}
 read -p "Enter IoT Thing name [doorbell-master]: " THING_NAME
 THING_NAME=${THING_NAME:-doorbell-master}
 
+# Ask if user wants to create dedicated IAM user
+echo ""
+read -p "Create dedicated IAM user with minimal permissions? [y/N]: " CREATE_USER
+CREATE_USER=${CREATE_USER:-n}
+
 echo ""
 echo "Creating AWS resources..."
 echo ""
@@ -128,8 +133,76 @@ aws iam attach-role-policy \
 ROLE_ARN=$(aws iam get-role --role-name $ROLE_NAME --query 'Role.Arn' --output text)
 echo "   Role ARN: $ROLE_ARN"
 
+# Create dedicated IAM user if requested
+if [[ "$CREATE_USER" =~ ^[Yy]$ ]]; then
+    echo "10. Creating dedicated IAM user..."
+    USER_NAME="${THING_NAME}-user"
+    
+    # Create user
+    aws iam create-user \
+        --user-name $USER_NAME \
+        --tags Key=Purpose,Value=DoorbellSystem >/dev/null 2>&1 || echo "   User already exists"
+    
+    # Create minimal policy for doorbell system
+    POLICY_NAME="${THING_NAME}-minimal-policy"
+    aws iam create-policy \
+        --policy-name $POLICY_NAME \
+        --policy-document '{
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                        "kinesisvideo:DescribeSignalingChannel",
+                        "kinesisvideo:GetSignalingChannelEndpoint",
+                        "kinesisvideo:GetIceServerConfig",
+                        "kinesisvideo:ConnectAsMaster",
+                        "kinesisvideo:ConnectAsViewer"
+                    ],
+                    "Resource": "'$CHANNEL_ARN'"
+                },
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                        "iot:Connect",
+                        "iot:Subscribe",
+                        "iot:Receive",
+                        "iot:Publish"
+                    ],
+                    "Resource": [
+                        "arn:aws:iot:'$REGION':*:client/'$THING_NAME'*",
+                        "arn:aws:iot:'$REGION':*:topic/doorbell/'$CHANNEL_NAME'/ring"
+                    ]
+                }
+            ]
+        }' >/dev/null 2>&1 || echo "   Policy already exists"
+    
+    # Attach policy to user
+    POLICY_ARN=$(aws iam list-policies --query "Policies[?PolicyName=='$POLICY_NAME'].Arn" --output text)
+    aws iam attach-user-policy \
+        --user-name $USER_NAME \
+        --policy-arn $POLICY_ARN
+    
+    # Create access keys
+    ACCESS_KEY_OUTPUT=$(aws iam create-access-key --user-name $USER_NAME --output json)
+    ACCESS_KEY_ID=$(echo $ACCESS_KEY_OUTPUT | jq -r '.AccessKey.AccessKeyId')
+    SECRET_ACCESS_KEY=$(echo $ACCESS_KEY_OUTPUT | jq -r '.AccessKey.SecretAccessKey')
+    
+    echo "   User: $USER_NAME"
+    echo "   Access Key ID: $ACCESS_KEY_ID"
+    echo "   Secret Access Key: [HIDDEN - see config files]"
+    
+    # Save credentials securely
+    echo "$ACCESS_KEY_OUTPUT" > viewer/aws-credentials.json
+    chmod 600 viewer/aws-credentials.json
+else
+    echo "10. Skipping IAM user creation (using existing credentials)"
+    ACCESS_KEY_ID="[Enter your AWS Access Key ID]"
+    SECRET_ACCESS_KEY="[Enter your AWS Secret Access Key]"
+fi
+
 # Create IoT Role Alias
-echo "10. Creating IoT Role Alias..."
+echo "11. Creating IoT Role Alias..."
 ROLE_ALIAS="${THING_NAME}-role-alias"
 aws iot create-role-alias \
     --role-alias $ROLE_ALIAS \
@@ -139,7 +212,7 @@ echo "   Role Alias: $ROLE_ALIAS"
 
 # Create .env file
 echo ""
-echo "11. Creating .env file..."
+echo "12. Creating .env file..."
 cat > master/.env << EOF
 export IOT_ENDPOINT=$IOT_ENDPOINT
 export CERT_PATH=./certs/certificate.pem.crt
@@ -152,7 +225,7 @@ EOF
 echo "   Created master/.env"
 
 # Create viewer settings file for manual reference
-echo "12. Creating viewer settings file..."
+echo "13. Creating viewer settings file..."
 cat > viewer/settings.txt << EOF
 VIEWER CONFIGURATION SETTINGS
 =============================
@@ -163,23 +236,17 @@ AWS Region: $REGION
 IoT Endpoint: $IOT_ENDPOINT
 KVS Channel ARN: $CHANNEL_ARN
 
-AWS Credentials (you need to provide your own):
-Access Key ID: [Enter your AWS Access Key ID]
-Secret Access Key: [Enter your AWS Secret Access Key]
+AWS Credentials:
+Access Key ID: $ACCESS_KEY_ID
+Secret Access Key: $SECRET_ACCESS_KEY
 Session Token: [Optional - only if using temporary credentials]
 
 MQTT Topic (auto-generated): doorbell/$CHANNEL_NAME/ring
 EOF
 echo "   Created viewer/settings.txt"
 
-# Add settings.txt to .gitignore if not already there
-if ! grep -q "viewer/settings.txt" .gitignore 2>/dev/null; then
-    echo "viewer/settings.txt" >> .gitignore
-    echo "   Added viewer/settings.txt to .gitignore"
-fi
-
 # Create demo_config.h for C WebRTC application
-echo "13. Creating demo_config.h..."
+echo "14. Creating demo_config.h..."
 cat > master/linux-webrtc-reference-for-amazon-kinesis-video-streams/examples/app_common/demo_config.h << EOF
 #ifndef DEMO_CONFIG_H
 #define DEMO_CONFIG_H
@@ -211,7 +278,7 @@ EOF
 echo "   Created demo_config.h"
 
 # Create AmebaProII demo_config.h
-echo "14. Creating AmebaProII demo_config.h..."
+echo "15. Creating AmebaProII demo_config.h..."
 mkdir -p master-amebapro/doorphone-master/examples/demo_config
 
 # Copy template as base
